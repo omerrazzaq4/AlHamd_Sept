@@ -148,8 +148,8 @@
     // Auto-load Excel file from directory
     async function autoLoadExcel() {
       try {
-        const response = await fetch("Factory_Khata_September.xlsx");
-        if (!response.ok) throw new Error("File not found - make sure Factory_Khata_September.xlsx is in the same directory");
+        const response = await fetch("Factory_Khata_August.xlsx");
+        if (!response.ok) throw new Error("File not found - make sure Factory_Khata_August.xlsx is in the same directory");
         
         const arrayBuffer = await response.arrayBuffer();
         workbookData = XLSX.read(arrayBuffer, { type: "array" });
@@ -167,7 +167,7 @@
         }
 
       } catch (err) {
-        showMessage("Could not load Factory_Khata_September.xlsx from directory: " + err.message, "error");
+        showMessage("Could not load Factory_Khata_August.xlsx from directory: " + err.message, "error");
       }
     }
 
