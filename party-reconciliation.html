@@ -236,7 +236,7 @@
           if (party) {
             allParties.add(party);
             
-            const billNo = row['Bill No'] || row['Bill no'] || row.BillNo || row.billNo || '';
+            const billNo = row['Bill Number'] || row['Bill Number'] || row.BillNo || row.billNo || '';
             const amount = parseFloat(row.Amount || row.amount || row.billing || row.Billing || row.AMOUNT || 0);
             
             if (amount > 0) {
