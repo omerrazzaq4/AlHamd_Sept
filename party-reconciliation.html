@@ -162,15 +162,18 @@
         const arrayBuffer = await response.arrayBuffer();
         workbookData = XLSX.read(arrayBuffer, { type: "array" });
 
-        // Process bills from all sheets except Balance and Cashbook
-        const excludeSheets = ['balance', 'cashbook', 'cash book'];
-        workbookData.SheetNames.forEach(sheetName => {
-          if (!excludeSheets.includes(sheetName.toLowerCase())) {
-            processBillSheet(sheetName);
-          }
-        });
+        // Process bills ONLY from Ledger sheet
+        const ledgerSheet = workbookData.SheetNames.find(name => 
+          name.toLowerCase().trim() === 'ledger'
+        );
+        
+        if (ledgerSheet) {
+          processBillSheet(ledgerSheet);
+        } else {
+          console.log('No Ledger sheet found. Available sheets:', workbookData.SheetNames);
+        }
 
-        document.getElementById('billsStatus').innerHTML = `<span class="success">✓ Loaded ${billsData.length} bills from ${workbookData.SheetNames.length} sheets</span>`;
+        document.getElementById('billsStatus').innerHTML = `<span class="success">✓ Loaded ${billsData.length} bills from Ledger sheet</span>`;
 
         // Load cashflow data (opening balances)
         loadCashflowData();
@@ -263,7 +266,7 @@
               billsData.push({
                 party: party,
                 date: parseDate(row.Date || row.date || row.DATE),
-                description: billNo ? `Bill ${billNo}` : `Bill (${sheetName})`,
+                description: billNo ? `Bill ${billNo}` : 'Bill',
                 amount: amount,
                 type: 'debit'
               });
