@@ -185,43 +185,63 @@
 
     function loadCashflowData() {
       try {
-        // Look for Cashflow sheet
+        // Look for Cashflow sheet (case-insensitive)
         const cashflowSheetName = workbookData.SheetNames.find(name => 
-          name.toLowerCase() === 'cashflow' || name.toLowerCase() === 'cash flow'
+          name.toLowerCase().trim() === 'cashflow' || 
+          name.toLowerCase().trim() === 'cash flow' ||
+          name.toLowerCase().trim().includes('cashflow')
         );
 
         if (!cashflowSheetName) {
-          console.log('No Cashflow sheet found');
+          console.log('No Cashflow sheet found. Available sheets:', workbookData.SheetNames);
           return;
         }
 
+        console.log('Found Cashflow sheet:', cashflowSheetName);
+
         const worksheet = workbookData.Sheets[cashflowSheetName];
         const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
-        const cleanedData = cleanTableData(rawData);
+        
+        console.log('Raw cashflow data:', rawData);
 
         // Process cashflow data - store opening balance per party
-        cleanedData.forEach(row => {
-          const party = findPartyName(row);
-          if (party) {
-            // Look for amount column (could be "Amount Paid", "Credit", "Payment", etc.)
+        rawData.forEach(row => {
+          console.log('Processing row:', row);
+          
+          // Find party name - try "Party Names" first (from your screenshot)
+          const party = (
+            row['Party Names'] || row['Party Name'] || row['PartyName'] || 
+            row['Party'] || row['party'] || row['PARTY'] || 
+            row['Name'] || row['name']
+          );
+
+          if (party && party.toString().trim() !== '') {
+            const partyUpper = party.toString().trim().toUpperCase();
+            
+            // Find credit amount - try exact "Credit" column first
             const amount = parseFloat(
-              row['Amount Paid'] || row['Amount paid'] || row['amount paid'] ||
-              row['Credit'] || row.credit || row.CREDIT ||
-              row['Payment'] || row.payment || row.PAYMENT ||
-              row['Amount'] || row.amount || row.AMOUNT || 0
+              row['Credit'] || row['credit'] || row['CREDIT'] ||
+              row['Amount'] || row['amount'] || row['AMOUNT'] || 0
             );
 
-            if (amount > 0) {
-              cashflowData[party] = amount;
-              console.log(`Loaded opening balance for ${party}: ${amount}`);
+            // Only store if amount is valid and not #N/A or similar
+            if (amount > 0 && !isNaN(amount)) {
+              cashflowData[partyUpper] = amount;
+              console.log(`✓ Loaded opening balance for ${partyUpper}: ${amount}`);
             }
           }
         });
 
-        console.log('Cashflow data loaded:', cashflowData);
+        console.log('Final cashflow data loaded:', cashflowData);
+        
+        // Update status message
+        const cashflowCount = Object.keys(cashflowData).length;
+        if (cashflowCount > 0) {
+          document.getElementById('billsStatus').innerHTML += `<br><span class="success">✓ Loaded opening balances for ${cashflowCount} parties from Cashflow sheet</span>`;
+        }
 
       } catch (err) {
-        console.log('Error loading cashflow data:', err);
+        console.error('Error loading cashflow data:', err);
       }
     }
 
@@ -236,7 +256,7 @@
           if (party) {
             allParties.add(party);
             
-            const billNo = row['Bill Number'] || row['Bill Number'] || row.BillNo || row.billNo || '';
+            const billNo = row['Bill Number'] || row['Bill number'] || row.BillNo || row.billNo || '';
             const amount = parseFloat(row.Amount || row.amount || row.billing || row.Billing || row.AMOUNT || 0);
             
             if (amount > 0) {
