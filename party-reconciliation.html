@@ -256,7 +256,7 @@
           if (party) {
             allParties.add(party);
             
-            const billNo = row['Bill Number'] || row['Bill number'] || row.BillNo || row.billNo || '';
+            const billNo = row['Bill Number'] || row['Bill Number'] || row.BillNo || row.billNo || '';
             const amount = parseFloat(row.Amount || row.amount || row.billing || row.Billing || row.AMOUNT || 0);
             
             if (amount > 0) {
@@ -460,8 +460,6 @@
         totalDebit += debit;
         totalCredit += credit;
         
-        const drCr = runningBalance >= 0 ? 'Dr' : 'Cr';
-        
         // Format date, but show special formatting for opening balance
         const dateDisplay = trans.description === 'Opening Balance (Previous Month Payment)' 
           ? 'Opening' 
@@ -473,7 +471,6 @@
             <td>${trans.description}</td>
             <td class="debit-col">${debit > 0 ? debit.toFixed(2) : ''}</td>
             <td class="credit-col">${credit > 0 ? credit.toFixed(2) : ''}</td>
-            <td>${drCr}</td>
             <td>${Math.abs(runningBalance).toFixed(2)}</td>
           </tr>
         `;
@@ -485,7 +482,7 @@
       const html = `
         <div class="ledger-container">
           <div class="ledger-header">
-            <h2>Ledger Reconciliation</h2>
+            <h2>Ledger</h2>
             <div class="company-info">
               <div class="info-row">
                 <span class="info-label">Company Name:</span>
@@ -494,14 +491,6 @@
               <div class="info-row">
                 <span class="info-label">To:</span>
                 <span>${partyName}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Time Period:</span>
-                <span>${formatDate(startDate)} - ${formatDate(endDate)}</span>
-              </div>
-              <div class="info-row">
-                <span class="info-label">Created By:</span>
-                <span>_____________</span>
               </div>
             </div>
           </div>
@@ -513,13 +502,12 @@
                 <th>Description</th>
                 <th>Debit</th>
                 <th>Credit</th>
-                <th>Dr or Cr</th>
                 <th>Closing Balance</th>
               </tr>
             </thead>
             <tbody>
               <tr class="opening-balance-row">
-                <td colspan="5">Opening Balance</td>
+                <td colspan="4">Opening Balance</td>
                 <td>0.00</td>
               </tr>
               ${tableRows}
@@ -527,14 +515,13 @@
                 <td colspan="2">Closing Balance</td>
                 <td class="debit-col"></td>
                 <td class="credit-col"></td>
-                <td></td>
                 <td>${Math.abs(runningBalance).toFixed(2)}</td>
               </tr>
               <tr class="totals">
                 <td colspan="2"><strong>Total</strong></td>
                 <td class="debit-col"><strong>${totalDebit.toFixed(2)}</strong></td>
                 <td class="credit-col"><strong>${totalCredit.toFixed(2)}</strong></td>
-                <td colspan="2"></td>
+                <td></td>
               </tr>
             </tbody>
           </table>
