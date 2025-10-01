@@ -463,6 +463,9 @@
         totalDebit += debit;
         totalCredit += credit;
         
+        // Determine color based on balance (red if they owe, green if overpaid)
+        const balanceColor = runningBalance > 0 ? 'debit-col' : runningBalance < 0 ? 'credit-col' : '';
+        
         // Format date, but show special formatting for opening balance
         const dateDisplay = trans.description === 'Opening Balance (Previous Month Payment)' 
           ? 'Opening' 
@@ -474,7 +477,7 @@
             <td>${trans.description}</td>
             <td class="debit-col">${debit > 0 ? debit.toFixed(2) : ''}</td>
             <td class="credit-col">${credit > 0 ? credit.toFixed(2) : ''}</td>
-            <td>${Math.abs(runningBalance).toFixed(2)}</td>
+            <td class="${balanceColor}">${Math.abs(runningBalance).toFixed(2)}</td>
           </tr>
         `;
       });
@@ -518,7 +521,7 @@
                 <td colspan="2">Closing Balance</td>
                 <td class="debit-col"></td>
                 <td class="credit-col"></td>
-                <td>${Math.abs(runningBalance).toFixed(2)}</td>
+                <td class="${runningBalance > 0 ? 'debit-col' : runningBalance < 0 ? 'credit-col' : ''}">${Math.abs(runningBalance).toFixed(2)}</td>
               </tr>
               <tr class="totals">
                 <td colspan="2"><strong>Total</strong></td>
