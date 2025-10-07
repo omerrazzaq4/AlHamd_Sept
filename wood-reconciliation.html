@@ -149,6 +149,7 @@
     let billsData = [];
     let cashbookData = [];
     let cashflowData = {};
+    let woodOpeningBalances = {};
     let allParties = new Set();
 
     // Auto-load on page load
@@ -262,21 +263,48 @@
           if (party) {
             allParties.add(party);
             
+            // Check if this is a "Closing Balance CF" row
+            const vehicleNumber = row['Vehicle Number'] || row['Vehicle number'] || row['vehicle number'] || 
+                                 row.VehicleNumber || row.vehicleNumber || '';
+            
+            if (vehicleNumber && vehicleNumber.toString().toLowerCase().includes('closing balance')) {
+              // This is an opening balance row
+              const totalKey = Object.keys(row).find(key => key.toLowerCase().trim() === 'total');
+              const amount = totalKey ? parseFloat(row[totalKey]) : 0;
+              
+              if (amount > 0) {
+                woodOpeningBalances[party] = amount;
+                console.log(`Found opening balance for ${party}: ${amount}`);
+              }
+              return; // Don't process this as a regular bill
+            }
+            
             // Try multiple variations of Bill Number column
             const billNo = row['Bill Number'] || row['Bill No'] || row['Bill no'] || 
                           row.BillNo || row.billNo || row['bill number'] || '';
+            
+            // Get weight and rate for description
+            const weight = row['Weight'] || row['weight'] || row.WEIGHT || '';
+            const rate = row['Rate'] || row['rate'] || row.RATE || '';
             
             // Use Total column for Wood sheet - try multiple variations
             const totalKey = Object.keys(row).find(key => key.toLowerCase().trim() === 'total');
             const amount = totalKey ? parseFloat(row[totalKey]) : 0;
             
-            console.log(`Party: ${party}, Bill: ${billNo}, Total column: ${totalKey}, Amount: ${amount}`);
+            console.log(`Party: ${party}, Bill: ${billNo}, Vehicle: ${vehicleNumber}, Weight: ${weight}, Rate: ${rate}, Amount: ${amount}`);
             
             if (amount > 0) {
+              // Build description with vehicle number, weight, and rate
+              let description = billNo ? `Bill ${billNo}` : 'Wood Bill';
+              if (vehicleNumber) description += ` - ${vehicleNumber}`;
+              if (weight) description += ` (${weight} kg`;
+              if (rate) description += ` @ ${rate}`;
+              if (weight && rate) description += ')';
+              
               billsData.push({
                 party: party,
                 date: parseDate(row.Date || row.date || row.DATE),
-                description: billNo ? `Bill ${billNo}` : 'Wood Bill',
+                description: description,
                 amount: amount,
                 type: 'debit'
               });
@@ -285,6 +313,7 @@
         });
 
         console.log('Total bills loaded:', billsData.length);
+        console.log('Opening balances found:', woodOpeningBalances);
         console.log('Bills data:', billsData);
 
       } catch (err) {
@@ -461,14 +490,28 @@
       const bills = billsData.filter(b => b.party === partyName);
       const payments = cashbookData.filter(p => p.party === partyName);
       
-      // Create opening balance entry from cashflow if exists
-      const openingBalanceEntry = cashflowData[partyName] ? {
-        party: partyName,
-        date: new Date(0), // Very old date to sort first
-        description: 'Opening Balance (Previous Month Payment)',
-        amount: cashflowData[partyName],
-        type: 'credit'
-      } : null;
+      // Create opening balance entry - prioritize Wood sheet opening balance
+      let openingBalanceEntry = null;
+      
+      if (woodOpeningBalances[partyName]) {
+        // Use Wood sheet opening balance (Closing Balance CF)
+        openingBalanceEntry = {
+          party: partyName,
+          date: new Date(0), // Very old date to sort first
+          description: 'Opening Balance (Wood CF)',
+          amount: woodOpeningBalances[partyName],
+          type: 'debit'
+        };
+      } else if (cashflowData[partyName]) {
+        // Fallback to Cashflow sheet if no Wood opening balance
+        openingBalanceEntry = {
+          party: partyName,
+          date: new Date(0),
+          description: 'Opening Balance (Previous Month Payment)',
+          amount: cashflowData[partyName],
+          type: 'credit'
+        };
+      }
 
       // Combine all transactions
       const allTransactions = openingBalanceEntry 
@@ -505,7 +548,7 @@
         const balanceColor = runningBalance > 0 ? 'debit-col' : runningBalance < 0 ? 'credit-col' : '';
         
         // Format date, but show special formatting for opening balance
-        const dateDisplay = trans.description === 'Opening Balance (Previous Month Payment)' 
+        const dateDisplay = trans.description.includes('Opening Balance') 
           ? 'Opening' 
           : formatDate(trans.date);
         
@@ -520,7 +563,7 @@
         `;
       });
 
-      const startDate = allTransactions.find(t => t.description !== 'Opening Balance (Previous Month Payment)')?.date || allTransactions[0].date;
+      const startDate = allTransactions.find(t => !t.description.includes('Opening Balance'))?.date || allTransactions[0].date;
       const endDate = allTransactions[allTransactions.length - 1].date;
 
       const html = `
