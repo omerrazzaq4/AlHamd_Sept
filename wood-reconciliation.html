@@ -295,11 +295,17 @@
             
             if (amount > 0) {
               // Build description with vehicle number, weight, and rate
-              let description = billNo ? `Bill ${billNo}` : 'Wood Bill';
-              if (vehicleNumber) description += ` - ${vehicleNumber}`;
-              if (weight) description += ` (${weight} kg`;
-              if (rate) description += ` @ ${rate}`;
-              if (weight && rate) description += ')';
+              let description = '';
+              if (vehicleNumber) description = vehicleNumber;
+              if (weight) description += (description ? ', ' : '') + `${weight} kg`;
+              if (rate) description += (description ? ' @ ' : '') + rate;
+              
+              // If no vehicle/weight/rate info, use bill number
+              if (!description && billNo) {
+                description = `Bill ${billNo}`;
+              } else if (!description) {
+                description = 'Wood Bill';
+              }
               
               billsData.push({
                 party: party,
@@ -490,33 +496,19 @@
       const bills = billsData.filter(b => b.party === partyName);
       const payments = cashbookData.filter(p => p.party === partyName);
       
-      // Create opening balance entry - prioritize Wood sheet opening balance
-      let openingBalanceEntry = null;
+      // Get opening balance - prioritize Wood sheet opening balance
+      let openingBalance = 0;
       
       if (woodOpeningBalances[partyName]) {
-        // Use Wood sheet opening balance (Closing Balance CF)
-        openingBalanceEntry = {
-          party: partyName,
-          date: new Date(0), // Very old date to sort first
-          description: 'Opening Balance (Wood CF)',
-          amount: woodOpeningBalances[partyName],
-          type: 'debit'
-        };
+        // Use Wood sheet opening balance (Closing Balance CF) as debit
+        openingBalance = woodOpeningBalances[partyName];
       } else if (cashflowData[partyName]) {
-        // Fallback to Cashflow sheet if no Wood opening balance
-        openingBalanceEntry = {
-          party: partyName,
-          date: new Date(0),
-          description: 'Opening Balance (Previous Month Payment)',
-          amount: cashflowData[partyName],
-          type: 'credit'
-        };
+        // Fallback to Cashflow sheet as credit (negative balance)
+        openingBalance = -cashflowData[partyName];
       }
 
-      // Combine all transactions
-      const allTransactions = openingBalanceEntry 
-        ? [openingBalanceEntry, ...bills, ...payments]
-        : [...bills, ...payments];
+      // Combine bills and payments (no opening balance entry in transactions)
+      const allTransactions = [...bills, ...payments];
       
       allTransactions.sort((a, b) => {
         if (!a.date) return 1;
@@ -530,7 +522,7 @@
         return;
       }
 
-      let runningBalance = 0;
+      let runningBalance = openingBalance; // Start with opening balance
       let totalDebit = 0;
       let totalCredit = 0;
 
@@ -547,14 +539,9 @@
         // Determine color based on balance (red if they owe, green if overpaid)
         const balanceColor = runningBalance > 0 ? 'debit-col' : runningBalance < 0 ? 'credit-col' : '';
         
-        // Format date, but show special formatting for opening balance
-        const dateDisplay = trans.description.includes('Opening Balance') 
-          ? 'Opening' 
-          : formatDate(trans.date);
-        
         tableRows += `
           <tr>
-            <td>${dateDisplay}</td>
+            <td>${formatDate(trans.date)}</td>
             <td>${trans.description}</td>
             <td class="debit-col">${debit > 0 ? debit.toFixed(2) : ''}</td>
             <td class="credit-col">${credit > 0 ? credit.toFixed(2) : ''}</td>
@@ -563,8 +550,8 @@
         `;
       });
 
-      const startDate = allTransactions.find(t => !t.description.includes('Opening Balance'))?.date || allTransactions[0].date;
-      const endDate = allTransactions[allTransactions.length - 1].date;
+      const startDate = allTransactions[0]?.date;
+      const endDate = allTransactions[allTransactions.length - 1]?.date;
 
       const html = `
         <div class="ledger-container">
@@ -595,7 +582,7 @@
             <tbody>
               <tr class="opening-balance-row">
                 <td colspan="4">Opening Balance</td>
-                <td>0.00</td>
+                <td>${Math.abs(openingBalance).toFixed(2)}</td>
               </tr>
               ${tableRows}
               <tr class="totals">
