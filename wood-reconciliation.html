@@ -254,28 +254,41 @@
         const rawData = XLSX.utils.sheet_to_json(worksheet, { defval: "" });
         const cleanedData = cleanTableData(rawData);
 
+        console.log('Processing Wood sheet data:', cleanedData);
+        console.log('Sample row:', cleanedData[0]);
+
         cleanedData.forEach(row => {
           const party = findPartyName(row);
           if (party) {
             allParties.add(party);
             
-            const billNo = row['Bill Number'] || row['Bill No'] || row.BillNo || row.billNo || '';
-            // Use Total column for Wood sheet
-            const amount = parseFloat(row.Total || row.total || row.TOTAL || 0);
+            // Try multiple variations of Bill Number column
+            const billNo = row['Bill Number'] || row['Bill No'] || row['Bill no'] || 
+                          row.BillNo || row.billNo || row['bill number'] || '';
+            
+            // Use Total column for Wood sheet - try multiple variations
+            const totalKey = Object.keys(row).find(key => key.toLowerCase().trim() === 'total');
+            const amount = totalKey ? parseFloat(row[totalKey]) : 0;
+            
+            console.log(`Party: ${party}, Bill: ${billNo}, Total column: ${totalKey}, Amount: ${amount}`);
             
             if (amount > 0) {
               billsData.push({
                 party: party,
                 date: parseDate(row.Date || row.date || row.DATE),
-                description: billNo ? `Bill ${billNo}` : 'Bill',
+                description: billNo ? `Bill ${billNo}` : 'Wood Bill',
                 amount: amount,
                 type: 'debit'
               });
             }
           }
         });
+
+        console.log('Total bills loaded:', billsData.length);
+        console.log('Bills data:', billsData);
+
       } catch (err) {
-        console.log(`Error processing sheet ${sheetName}:`, err);
+        console.error(`Error processing sheet ${sheetName}:`, err);
       }
     }
 
@@ -343,11 +356,34 @@
       const allColumns = Object.keys(rawData[0]);
       const validColumns = allColumns.filter(col => {
         const colName = col.toString().toLowerCase();
-        return !colName.includes('__empty') && 
-               !colName.includes('empty') && 
-               colName.trim() !== '' && 
-               !/^\d+$/.test(colName);
+        
+        // Keep empty columns check
+        if (colName.includes('__empty') || colName.includes('empty')) {
+          return false;
+        }
+        
+        // Keep columns that are whitespace or just numbers - but NOT if it says "Total"
+        if (colName.trim() === '' || /^\d+$/.test(colName)) {
+          return false;
+        }
+        
+        // KEEP standalone "Total" column - don't filter it out
+        if (colName.trim() === 'total') {
+          return true;
+        }
+        
+        // Remove columns that appear to be pivot table artifacts
+        if (colName.includes('sum of') || colName.includes('count of') || 
+            colName.includes('average of') || colName.includes('grand total') ||
+            colName.includes('total of') || colName.includes('subtotal')) {
+          return false;
+        }
+        
+        return true;
       });
+
+      console.log("Original columns:", allColumns);
+      console.log("Filtered columns:", validColumns);
 
       return rawData.map(row => {
         const cleanedRow = {};
