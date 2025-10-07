@@ -269,7 +269,7 @@
             
             if (vehicleNumber && vehicleNumber.toString().toLowerCase().includes('closing balance cf')) {
               // This is an opening balance row
-              const totalKey = Object.keys(row).find(key => key.toLowerCase().trim() === 'total');
+              const totalKey = Object.keys(row).find(key => key.toLowerCase().trim() === 'balance');
               const amount = totalKey ? parseFloat(row[totalKey]) : 0;
               
               if (amount > 0) {
@@ -621,4 +621,5 @@
   </script>
 </body>
 </html>
+
 
